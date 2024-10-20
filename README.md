@@ -1,8 +1,7 @@
 # Erlang Chat Server
 
 A simple chat server written in Erlang/OTP 25.
-It runs on the port 4000 by default.
-
+It listens to the port set in sys.config or defaults to 4000.
 
 ## Build
 

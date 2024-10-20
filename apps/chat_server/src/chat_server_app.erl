@@ -10,13 +10,14 @@
 -export([start/2, stop/1]).
 
 
--define(PORT, 4000).
+-define(DEFAULT_PORT, 4000).
 -define(TCP_OPTIONS, [binary, {packet, 0}, {active, false}, {reuseaddr, true}]).
 
 
 start(_StartType, _StartArgs) ->
-    {ok, ListenSocket} = gen_tcp:listen(?PORT, ?TCP_OPTIONS),
-    io:format("Listening on port ~p~n", [?PORT]),
+    Port = application:get_env(chat_server, port, ?DEFAULT_PORT),
+    {ok, ListenSocket} = gen_tcp:listen(Port, ?TCP_OPTIONS),
+    io:format("Listening on port ~p~n", [Port]),
     accept(ListenSocket).
 
 stop(_State) ->
