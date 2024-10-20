@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%% @doc chat_server actual server implementation.
+%% @doc actual TCP server implementation.
 %% @end
 %%%-------------------------------------------------------------------
 
@@ -8,7 +8,7 @@
 -behavior(gen_server).
 
 -export([
-    start/3,
+    start_link/3,
     init/1,
     handle_cast/2,
     accept_loop/1,
@@ -28,7 +28,7 @@
 	listen_socket=null
 }).
 
-start(Name, Port, Loop) ->
+start_link(Name, Port, Loop) ->
 	State = #server_state{port = Port, loop = Loop},
 	gen_server:start_link({local, Name}, ?MODULE, State, []).
 

@@ -1,5 +1,5 @@
 %%%-------------------------------------------------------------------
-%% @doc chat_server entrypoint
+%% @doc chat server entrypoint
 %% @end
 %%%-------------------------------------------------------------------
 
@@ -13,7 +13,7 @@
 
 start(_StartType, _StartArgs) ->
     Port = application:get_env(chat_server, port, ?DEFAULT_PORT),
-    socket_server:start(?MODULE, Port,  {?MODULE, loop}).
+    socket_server_sup:start_link(?MODULE, Port,  {?MODULE, loop}).
 
 stop(_State) ->
     ok.
