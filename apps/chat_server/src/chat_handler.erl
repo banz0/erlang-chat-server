@@ -33,7 +33,18 @@ user_list(Users) ->
     UserList = dict:fetch_keys(Users),
     string:join(UserList, ":").
 
+handle_cast({say, Nick, Msg}, Users) ->
+    broadcast(Nick, "SAID:" ++ Nick ++ ":" ++ Msg ++ "\n", Users),
+    {noreply, Users};
 handle_cast(_Request, State) -> {noreply, State}.
+
+% auxiliary functions
+broadcast(Nick, Msg, Users) ->
+    Sockets = lists:map(fun({_, [Value|_]}) -> Value end, dict:to_list(dict:erase(Nick, Users))),
+    lists:foreach(fun(Sock) -> gen_tcp:send(Sock, Msg) end, Sockets).
+
+%% dummy implementations to suppress warnings
+
 handle_info(_Message, State) -> {noreply, State}.
 terminate(_Reason, _State) -> ok.
 code_change(_OldVersion, State, _Extra) -> {ok, State}.

@@ -42,23 +42,46 @@ try_connection(Nick, Socket) ->
         {ok, List} ->
             gen_tcp:send(Socket, "CONNECT:OK:" ++ List ++ "\n"),
             gen_server:cast(chat_handler, {join, Nick}),
-            loop(Socket);
+            loop(Nick, Socket);
         nick_in_use ->
             gen_tcp:send(Socket, "CONNECT:ERROR:Nick in use.\n"),
             ok
     end.
 
-loop(Socket) ->
+loop(Nick, Socket) ->
     case gen_tcp:recv(Socket, 0) of
         {ok, Data} ->
-            io:format("Received: ~p~n", [Data]),
-            gen_tcp:send(Socket, Data),
-            loop(Socket);
+            io:format("Data: ~p~n", [Data]),
+            Message = binary_to_list(Data),
+            handle_message(Nick, Message, Socket);
         {error, closed} ->
             io:format("Client disconnected~n"),
             % TODO update users_list?
             ok
     end.
+
+handle_message(Nick, Message, Socket) ->
+    case lists:member($:, Message) of
+        true ->
+            {Command, [_|Content]} = lists:splitwith(fun(T) -> [T] =/= ":" end, Message),
+            handle_command(Nick, Command, Content, Socket);
+        false ->
+            % ignore messages that do not follow COMMAND:content structure
+            loop(Nick, Socket)
+    end.
+
+handle_command(Nick, Command, Content, Socket) ->
+    case Command of
+        "SAY" ->
+            say(Nick, Socket, clean(Content));
+        _ ->
+            gen_tcp:send(Socket, "Unknown command\n"),
+            loop(Nick, Socket)
+    end.
+
+say(Nick, Socket, Content) ->
+    gen_server:cast(chat_handler, {say, Nick, Content}),
+    loop(Nick, Socket).
 
 clean(Data) ->
     re:replace(Data, "[\r\n]+$", "", [global, {return, list}]).
