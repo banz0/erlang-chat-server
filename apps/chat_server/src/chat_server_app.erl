@@ -93,7 +93,9 @@ handle_command(Nick, Command, Content, Socket) ->
 % commands
 
 say(Nick, Socket, Content) ->
-    gen_server:cast(chat_handler, {say, Nick, Content}),
+    % TODO validate input
+    {RoomName, [_|Message]} = lists:splitwith(fun(T) -> [T] =/= ":" end, Content),
+    gen_server:cast(chat_handler, {say, Nick, RoomName, Message}),
     loop(Nick, Socket).
 
 create_room(Nick, Socket, Content) ->

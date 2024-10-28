@@ -111,6 +111,7 @@ handle_call({destroy_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) 
             io:format("Is member: ~p~n", [IsCreator]),
             Response = if IsCreator ->
                             UpdatedRooms = dict:erase(RoomName, Rooms),
+                            % TODO broadcast to room members that room is deleted
                             {ok, room_list(UpdatedRooms)};
                         true ->
                             UpdatedRooms = Rooms,
@@ -119,9 +120,16 @@ handle_call({destroy_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) 
             {reply, Response, State#state{rooms=UpdatedRooms}}
     end.
 
-handle_cast({say, Nick, Msg}, State = #state{users=Users}) ->
-    broadcast(Nick, "SAID:" ++ Nick ++ ":" ++ Msg ++ "\n", Users),
-    {noreply, State};
+handle_cast({say, Nick, RoomName, Msg}, State = #state{rooms=Rooms, users=Users}) ->
+    case is_member(Nick, RoomName, Rooms) of
+        {ok, Members} ->
+            Message = "ROOM:" ++ RoomName ++ ":USER:" ++ Nick ++ ":SAID:" ++ Nick ++ ":" ++ Msg ++ "\n",
+            Members = dict:fetch(RoomName, Rooms),
+            broadcast_to_room(Nick, Message, Users, Members),
+            {noreply, State};
+        {error, _} ->
+            {noreply, State}
+    end;
 
 handle_cast(_Request, State) -> {noreply, State}.
 
@@ -130,7 +138,15 @@ handle_cast(_Request, State) -> {noreply, State}.
 
 broadcast(Nick, Msg, Users) ->
     Sockets = lists:map(fun({_, [Value|_]}) -> Value end, dict:to_list(dict:erase(Nick, Users))),
+    io:format("Sockets: ~p~n", [Sockets]),
     lists:foreach(fun(Sock) -> gen_tcp:send(Sock, Msg) end, Sockets).
+
+broadcast_to_room(Nick, Msg, Users, Members) ->
+    % the flattening is really ugly, but I haven't found another solution
+    FlatMembers = lists:flatmap(fun(Member) -> Member end, Members),
+    Sockets = [Socket || Member <- FlatMembers, {ok, Socket} <- [dict:find(Member, dict:erase(Nick, Users))]],
+    FlatSockets = lists:flatmap(fun(Socket) -> Socket end, Sockets),
+    lists:foreach(fun(Socket) -> gen_tcp:send(Socket, Msg) end, FlatSockets).
 
 user_list(Users) ->
     UserList = dict:fetch_keys(Users),
@@ -143,6 +159,20 @@ room_list(Rooms) ->
     string:join(RoomList, ":").
 
 members_list(Members) -> string:join(Members, ":").
+
+is_member(Nick, RoomName, Rooms) ->
+    case dict:find(RoomName, Rooms) of
+        {ok, Members} ->
+            IsMember = lists:member([Nick], Members),
+            if IsMember ->
+                    {ok, Members};
+                true ->
+                    {error, not_member}
+            end;
+        error ->
+            {error, no_room}
+    end.
+
 
 
 %% dummy implementations to suppress warnings
