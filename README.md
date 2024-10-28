@@ -40,7 +40,7 @@ The client commands you can use and server messages you'll receive are listed be
 
 `CONNECT:<nick>`: Connect with the server and register your username.
 
-`SAY:<msg>`: Broadcast a message to every user.
+`SAY:<room>:<msg>`: Broadcast a message to every user in a room.
 
 `CREATE:<room>`: Create a new chat room.
 
@@ -52,7 +52,13 @@ The client commands you can use and server messages you'll receive are listed be
 
 `DESTROY:<room>`: Destroy a chat room. Only possible for the creator of the room.
 
-`PVT:<nick>:<msg>`: Sends a private message to a currently connected user.
+`PVT:<nick>:<msg>`: Send a private message to a currently connected user.
+
+`CREATE_PVT:<room>`: Create a new private chat room, that won't be shown as a result of the LIST command.
+
+`INVITE:<pvt_room>:<nick>`: Invite a user to a private chat room. Only possible for the creator of the room.
+
+`SAY_PVT:<pvt_room>`: Broadcast a message to every user in a private room.
 
 
 ### Server messages
@@ -94,6 +100,12 @@ The client commands you can use and server messages you'll receive are listed be
 `ROOM:<room>:USER:<nick>:LEFT`: Received whenever a member leaves a room the user is also in.
 
 `PVT:<nick>:SAID:<msg>`: Received whenever someone sends the user a private message.
+
+`CREATE_PVT:ERROR:<reason>`: Negative response to the CREATE_PVT command.
+
+`INVITE:ERROR:<reason>: Negative response to the INVITE command.
+
+`PVT:ROOM<ptv_room>:USER:<nick>:SAID:<msg>`: Received whenever a message is sent to any private room the user is also in.
 
 
 ### Example telnet session
