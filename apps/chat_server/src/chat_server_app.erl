@@ -80,6 +80,8 @@ handle_command(Nick, Command, Content, Socket) ->
             list_rooms(Nick, Socket);
         "JOIN_ROOM" ->
             join_room(Nick, Socket, clean(Content));
+        "LEAVE_ROOM" ->
+            leave_room(Nick, Socket, clean(Content));
         _ ->
             gen_tcp:send(Socket, "Unknown command\n"),
             loop(Nick, Socket)
@@ -109,7 +111,7 @@ list_rooms(Nick, Socket) ->
         {ok, List} ->
             gen_tcp:send(Socket, "LIST_ROOMS:OK:" ++ List ++ "\n");
         no_rooms ->
-            gen_tcp:send(Socket, "LIST_ROOMS:ERROR:No rooms available.\n"),
+            gen_tcp:send(Socket, "LIST_ROOMS:No rooms available.\n"),
             ok
     end,
     loop(Nick, Socket).
@@ -119,12 +121,29 @@ join_room(Nick, Socket, RoomName) ->
     case Response of
         {ok, List} ->
             gen_tcp:send(Socket, "JOIN_ROOM:OK:" ++ List ++ "\n");
+            % gen_tcp:send(Socket, "JOIN_ROOM:" ++ RoomName + ":OK:" ++ List ++ "\n");
             % gen_server:cast(chat_handler, {join, RoomName, Nick}),
         already_joined ->
             gen_tcp:send(Socket, "JOIN_ROOM:ERROR:You're already in the room.\n"),
             ok;
         room_doesnt_exist ->
             gen_tcp:send(Socket, "JOIN_ROOM:ERROR:The room you're trying to join doesn't exist.\n"),
+            ok
+    end,
+    loop(Nick, Socket).
+
+leave_room(Nick, Socket, RoomName) ->
+    Response = gen_server:call(chat_handler, {leave_room, Nick, RoomName}),
+    case Response of
+        {ok, List} ->
+            gen_tcp:send(Socket, "LEAVE_ROOM:OK:" ++ List ++ "\n");
+            % gen_tcp:send(Socket, "LEAVE_ROOM:" ++ RoomName ++ ":OK:" ++ List ++ "\n");
+            % gen_server:cast(chat_handler, {join, RoomName, Nick}),
+        not_member ->
+            gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:You're not a member of the room.\n"),
+            ok;
+        room_doesnt_exist ->
+            gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:The room you're trying to leave doesn't exist.\n"),
             ok
     end,
     loop(Nick, Socket).

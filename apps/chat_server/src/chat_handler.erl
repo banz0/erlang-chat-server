@@ -72,6 +72,28 @@ handle_call({join_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
                             {ok, members_list(UpdatedMembers)}
             end,
             {reply, Response, State#state{rooms=NewRooms}}
+    end;
+
+handle_call({leave_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
+    case dict:is_key(RoomName, Rooms) of
+        false ->
+            {reply, room_doesnt_exist, State};
+        true ->
+            % check if user is in list
+            Members = dict:fetch(RoomName, Rooms),
+            io:format("Room members: ~p~n", [Members]),
+            io:format("Nick: ~p~n", [Nick]),
+            IsMember = lists:member([Nick], Members),
+            io:format("Is member: ~p~n", [IsMember]),
+            Response = if IsMember ->
+                            UpdatedMembers = lists:filter(fun(Member) -> Member =/= [Nick] end, Members),
+                            NewRooms = dict:store(RoomName, UpdatedMembers, Rooms),
+                            {ok, members_list(UpdatedMembers)};
+                        true ->
+                            NewRooms = Rooms,
+                            not_member
+            end,
+            {reply, Response, State#state{rooms=NewRooms}}
     end.
 
 handle_cast({say, Nick, Msg}, State = #state{users=Users}) ->
