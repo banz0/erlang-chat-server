@@ -78,6 +78,8 @@ handle_command(Nick, Command, Content, Socket) ->
             create_room(Nick, Socket, clean(Content));
         "LIST_ROOMS" ->
             list_rooms(Nick, Socket);
+        "JOIN_ROOM" ->
+            join_room(Nick, Socket, clean(Content));
         _ ->
             gen_tcp:send(Socket, "Unknown command\n"),
             loop(Nick, Socket)
@@ -95,7 +97,6 @@ create_room(Nick, Socket, Content) ->
     case Response of
         {ok, List} ->
             gen_tcp:send(Socket, "CREATE_ROOM:OK:" ++ List ++ "\n");
-            % gen_server:cast(chat_handler, {join, Nick}),
         room_already_exists ->
             gen_tcp:send(Socket, "CREATE_ROOM:ERROR:Room already exists.\n"),
             ok
@@ -107,13 +108,26 @@ list_rooms(Nick, Socket) ->
     case Response of
         {ok, List} ->
             gen_tcp:send(Socket, "LIST_ROOMS:OK:" ++ List ++ "\n");
-            % gen_server:cast(chat_handler, {join, Nick}),
         no_rooms ->
             gen_tcp:send(Socket, "LIST_ROOMS:ERROR:No rooms available.\n"),
             ok
     end,
     loop(Nick, Socket).
 
+join_room(Nick, Socket, RoomName) ->
+    Response = gen_server:call(chat_handler, {join_room, Nick, RoomName}),
+    case Response of
+        {ok, List} ->
+            gen_tcp:send(Socket, "JOIN_ROOM:OK:" ++ List ++ "\n");
+            % gen_server:cast(chat_handler, {join, RoomName, Nick}),
+        already_joined ->
+            gen_tcp:send(Socket, "JOIN_ROOM:ERROR:You're already in the room.\n"),
+            ok;
+        room_doesnt_exist ->
+            gen_tcp:send(Socket, "JOIN_ROOM:ERROR:The room you're trying to join doesn't exist.\n"),
+            ok
+    end,
+    loop(Nick, Socket).
 
 % aux functions
 

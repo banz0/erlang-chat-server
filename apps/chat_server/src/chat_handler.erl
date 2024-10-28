@@ -34,9 +34,10 @@ handle_call({create_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) -
     Response = case dict:is_key(RoomName, Rooms) of
         true ->
             NewRooms = Rooms,
-            room_already_exists;  % Room already exists, ignore request
+            room_already_exists;  % room already exists, ignore request
         false ->
-            NewRooms = dict:append(RoomName, Nick, Rooms), % TODO figure out a way too track room ownership
+            NewRooms = dict:append(RoomName, [Nick], Rooms), % TODO figure out a way too track room ownership
+            io:format("Room members: ~p~n", [members_list([Nick])]),
             {ok, room_list(NewRooms)}
     end,
     {reply, Response, State#state{rooms=NewRooms}};
@@ -48,7 +49,30 @@ handle_call({list_rooms, _Nick}, _From, State = #state{rooms=Rooms}) ->
         false ->
             {ok, room_list(Rooms)}
     end,
-    {reply, Response, State#state{rooms=Rooms}}.
+    {reply, Response, State#state{rooms=Rooms}};
+
+handle_call({join_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
+    case dict:is_key(RoomName, Rooms) of
+        false ->
+            {reply, room_doesnt_exist, State};
+        true ->
+            % check if user is in list
+            Members = dict:fetch(RoomName, Rooms),
+            io:format("Room members: ~p~n", [Members]),
+            io:format("Nick: ~p~n", [Nick]),
+            IsMember = lists:member([Nick], Members),
+            io:format("Is member: ~p~n", [IsMember]),
+            Response = if IsMember ->
+                            NewRooms = Rooms,
+                            already_joined;
+                        true ->
+                            % add user to room members
+                            UpdatedMembers = Members ++ [[Nick]],
+                            NewRooms = dict:store(RoomName, UpdatedMembers, Rooms),
+                            {ok, members_list(UpdatedMembers)}
+            end,
+            {reply, Response, State#state{rooms=NewRooms}}
+    end.
 
 handle_cast({say, Nick, Msg}, State = #state{users=Users}) ->
     broadcast(Nick, "SAID:" ++ Nick ++ ":" ++ Msg ++ "\n", Users),
@@ -72,10 +96,11 @@ room_list(Rooms) ->
     io:format("RoomList: ~p~n", [RoomList]),
     string:join(RoomList, ":").
 
-is_empty([]) ->
-    true;
-is_empty(_) ->
-    false.
+members_list(Members) -> string:join(Members, ":").
+
+is_empty([]) -> true;
+
+is_empty(_) -> false.
 
 
 %% dummy implementations to suppress warnings
