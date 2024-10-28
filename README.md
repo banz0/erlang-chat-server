@@ -52,6 +52,8 @@ The client commands you can use and server messages you'll receive are listed be
 
 `DESTROY:<room>`: Destroy a chat room. Only possible for the creator of the room.
 
+`PVT:<nick>:<msg>`: Sends a private message to a currently connected user.
+
 
 ### Server messages
 
@@ -90,6 +92,8 @@ The client commands you can use and server messages you'll receive are listed be
 `ROOM:<room>:USER:<nick>:JOINED`: Received whenever a new member joins a room the user is also in.
 
 `ROOM:<room>:USER:<nick>:LEFT`: Received whenever a member leaves a room the user is also in.
+
+`PVT:<nick>:SAID:<msg>`: Received whenever someone sends the user a private message.
 
 
 ### Example telnet session
