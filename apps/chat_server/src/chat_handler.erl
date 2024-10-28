@@ -43,7 +43,7 @@ handle_call({create_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) -
     {reply, Response, State#state{rooms=NewRooms}};
 
 handle_call({list_rooms, _Nick}, _From, State = #state{rooms=Rooms}) ->
-    Response = case is_empty(Rooms) of
+    Response = case dict:is_empty(Rooms) of
         true ->
             no_rooms;
         false ->
@@ -143,10 +143,6 @@ room_list(Rooms) ->
     string:join(RoomList, ":").
 
 members_list(Members) -> string:join(Members, ":").
-
-is_empty([]) -> true;
-
-is_empty(_) -> false.
 
 
 %% dummy implementations to suppress warnings
