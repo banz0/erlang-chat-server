@@ -56,7 +56,6 @@ loop(Nick, Socket) ->
             handle_message(Nick, Message, Socket);
         {error, closed} ->
             io:format("Client disconnected~n"),
-            % TODO update users_list?
             ok
     end.
 
@@ -99,10 +98,12 @@ say(Nick, Socket, Content) ->
     loop(Nick, Socket).
 
 create_room(Nick, Socket, Content) ->
-    Response = gen_server:call(chat_handler, {create_room, Nick, clean(Content)}),
+    RoomName = clean(Content),
+    Response = gen_server:call(chat_handler, {create_room, Nick, RoomName}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "CREATE_ROOM:OK:" ++ List ++ "\n");
+            gen_tcp:send(Socket, "CREATE_ROOM:OK:" ++ List ++ "\n"),
+            gen_server:cast(chat_handler, {create, Nick, RoomName});
         room_already_exists ->
             gen_tcp:send(Socket, "CREATE_ROOM:ERROR:Room already exists.\n"),
             ok
@@ -124,8 +125,8 @@ join_room(Nick, Socket, RoomName) ->
     Response = gen_server:call(chat_handler, {join_room, Nick, RoomName}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "JOIN_ROOM:OK:" ++ List ++ "\n");
-            % gen_server:cast(chat_handler, {join, RoomName, Nick}),
+            gen_tcp:send(Socket, "JOIN_ROOM:OK:" ++ List ++ "\n"),
+            gen_server:cast(chat_handler, {join, Nick, RoomName});
         already_joined ->
             gen_tcp:send(Socket, "JOIN_ROOM:ERROR:You're already in the room.\n"),
             ok;
@@ -139,8 +140,8 @@ leave_room(Nick, Socket, RoomName) ->
     Response = gen_server:call(chat_handler, {leave_room, Nick, RoomName}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "LEAVE_ROOM:OK:" ++ List ++ "\n");
-            % gen_server:cast(chat_handler, {leave, RoomName, Nick}),
+            gen_tcp:send(Socket, "LEAVE_ROOM:OK:" ++ List ++ "\n"),
+            gen_server:cast(chat_handler, {leave, Nick, RoomName});
         {error, is_creator} ->
             gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:The creator cannot leave the room. Use DESTROY_ROOM:<room_name> to destroy it.\n"),
             ok;
@@ -157,9 +158,8 @@ destroy_room(Nick, Socket, RoomName) ->
     Response = gen_server:call(chat_handler, {destroy_room, Nick, RoomName}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "DESTROY_ROOM:OK:" ++ List ++ "\n");
-            % gen_server:cast(chat_handler, {destroy, RoomName, Nick}),
-            % TODO figure out how to notify room members the room was destroyed, after it's destroyed
+            gen_tcp:send(Socket, "DESTROY_ROOM:OK:" ++ List ++ "\n"),
+            gen_server:cast(chat_handler, {destroy, Nick, RoomName});
         not_creator ->
             gen_tcp:send(Socket, "DESTROY_ROOM:ERROR:Only the creator of the room can destroy it.\n"),
             ok;

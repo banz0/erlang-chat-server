@@ -11,13 +11,16 @@
 
 -record(state, {users, rooms}).
 
+
 start() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
+
 
 init([]) ->
     Users = dict:new(), % maps users nickames to sockets
     Rooms = dict:new(), % maps rooms to their members nicknames
     {ok, #state{users=Users, rooms=Rooms}}.
+
 
 handle_call({connect, Nick, Socket}, _From, State = #state{users=Users}) ->
     Response = case dict:is_key(Nick, Users) of
@@ -113,7 +116,6 @@ handle_call({destroy_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) 
             io:format("Is member: ~p~n", [IsCreator]),
             Response = if IsCreator ->
                             UpdatedRooms = dict:erase(RoomName, Rooms),
-                            % TODO broadcast to room members that room is deleted
                             {ok, room_list(UpdatedRooms)};
                         true ->
                             UpdatedRooms = Rooms,
@@ -122,16 +124,39 @@ handle_call({destroy_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) 
             {reply, Response, State#state{rooms=UpdatedRooms}}
     end.
 
+
 handle_cast({say, Nick, RoomName, Msg}, State = #state{rooms=Rooms, users=Users}) ->
     case is_member(Nick, RoomName, Rooms) of
         {ok, Members} ->
-            Message = "ROOM:" ++ RoomName ++ ":USER:" ++ Nick ++ ":SAID:" ++ Nick ++ ":" ++ Msg ++ "\n",
+            Message = "ROOM:" ++ RoomName ++ ":USER:" ++ Nick ++ ":SAID:" ++ Msg ++ "\n",
             Members = dict:fetch(RoomName, Rooms),
             broadcast_to_room(Nick, Message, Users, Members),
             {noreply, State};
         {error, _} ->
             {noreply, State}
     end;
+
+handle_cast({create, Nick, RoomName}, State = #state{users=Users}) ->
+    Message = "ROOM:" ++ RoomName ++ ":CREATED" ++ "\n",
+    broadcast(Nick, Message, Users),
+    {noreply, State};
+
+handle_cast({destroy, Nick, RoomName}, State = #state{users=Users}) ->
+    Message = "ROOM:" ++ RoomName ++ ":DESTROYED" ++ "\n",
+    broadcast(Nick, Message, Users),
+    {noreply, State};
+
+handle_cast({join, Nick, RoomName}, State = #state{rooms=Rooms, users=Users}) ->
+    Message = "ROOM:" ++ RoomName ++ ":USER:" ++ Nick ++ ":JOINED" ++ "\n",
+    Members = dict:fetch(RoomName, Rooms),
+    broadcast_to_room(Nick, Message, Users, Members),
+    {noreply, State};
+
+handle_cast({leave, Nick, RoomName}, State = #state{rooms=Rooms, users=Users}) ->
+    Message = "ROOM:" ++ RoomName ++ ":USER:" ++ Nick ++ ":LEFT" ++ "\n",
+    Members = dict:fetch(RoomName, Rooms),
+    broadcast_to_room(Nick, Message, Users, Members),
+    {noreply, State};
 
 handle_cast(_Request, State) -> {noreply, State}.
 
@@ -143,11 +168,11 @@ broadcast(Nick, Msg, Users) ->
     io:format("Sockets: ~p~n", [Sockets]),
     lists:foreach(fun(Sock) -> gen_tcp:send(Sock, Msg) end, Sockets).
 
-broadcast_to_room(Nick, Msg, Users, Members) ->
+broadcast_to_room(Nick, Msg, Users, RoomMembers) ->
     % the flattening is really ugly, but I haven't found another solution
-    FlatMembers = lists:flatmap(fun(Member) -> Member end, Members),
-    Sockets = [Socket || Member <- FlatMembers, {ok, Socket} <- [dict:find(Member, dict:erase(Nick, Users))]],
-    FlatSockets = lists:flatmap(fun(Socket) -> Socket end, Sockets),
+    FlatMembers = lists:flatmap(fun(Member) -> Member end, RoomMembers),
+    MemberSockets = [Socket || Member <- FlatMembers, {ok, Socket} <- [dict:find(Member, dict:erase(Nick, Users))]],
+    FlatSockets = lists:flatmap(fun(Socket) -> Socket end, MemberSockets),
     lists:foreach(fun(Socket) -> gen_tcp:send(Socket, Msg) end, FlatSockets).
 
 user_list(Users) ->
