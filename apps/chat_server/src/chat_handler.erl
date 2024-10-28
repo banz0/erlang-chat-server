@@ -17,7 +17,7 @@
     code_change/3
 ]).
 
--record(state, {users, rooms}).
+-record(state, {users, rooms, private_rooms}).
 
 
 start_link() ->
@@ -26,7 +26,8 @@ start_link() ->
 init([]) ->
     Users = dict:new(), % maps users nickames to sockets
     Rooms = dict:new(), % maps rooms to their members nicknames
-    {ok, #state{users=Users, rooms=Rooms}}.
+    PrivateRooms = dict:new(), % maps private rooms to their members nicknames
+    {ok, #state{users=Users, rooms=Rooms, private_rooms = PrivateRooms}}.
 
 
 handle_call({connect, Nick, Socket}, _From, State = #state{users=Users}) ->
@@ -122,6 +123,44 @@ handle_call({destroy_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) 
                             not_creator
             end,
             {reply, Response, State#state{rooms=UpdatedRooms}}
+    end;
+
+handle_call({create_private_room, Nick, RoomName}, _From, State = #state{private_rooms=Rooms}) ->
+    Response = case dict:is_key(RoomName, Rooms) of
+        true ->
+            UpdatedRooms = Rooms,
+            room_already_exists;
+        false ->
+            UpdatedRooms = dict:append(RoomName, [Nick], Rooms),
+            ok
+    end,
+    {reply, Response, State#state{private_rooms=UpdatedRooms}};
+
+handle_call({invite, Nick, RoomName, InvitedUser}, _From, State = #state{private_rooms=Rooms}) ->
+    case dict:is_key(RoomName, Rooms) of
+        false ->
+            {reply, {error, no_room}, State};
+        true ->
+            % check if user is in list
+            Members = dict:fetch(RoomName, Rooms),
+            [Creator | _] = Members,
+            io:format("Nick ~p~n", [Nick]),
+            io:format("Creator ~p~n", [Creator]),
+            IsCreator = Creator == [Nick],
+            IsMember = lists:member([InvitedUser], Members),
+            Response = if not IsCreator ->
+                            UpdatedRooms = Rooms,
+                            {error, not_creator};
+                        IsMember ->
+                            UpdatedRooms = Rooms,
+                            {error, already_joined};
+                        true ->
+                            % add user to room members
+                            UpdatedMembers = Members ++ [[InvitedUser]],
+                            UpdatedRooms = dict:store(RoomName, UpdatedMembers, Rooms),
+                            {ok, members_list(UpdatedMembers)}
+            end,
+            {reply, Response, State#state{private_rooms=UpdatedRooms}}
     end.
 
 

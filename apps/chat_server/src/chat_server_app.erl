@@ -86,6 +86,10 @@ handle_command(Nick, Command, Content, Socket) ->
             destroy_room(Nick, Socket, clean(Content));
         "PVT" ->
             send_private_message(Nick, Socket, clean(Content));
+        "CREATE_PVT" ->
+            create_private_room(Nick, Socket, clean(Content));
+        "INVITE" ->
+            invite(Nick, Socket, clean(Content));
         _ ->
             gen_tcp:send(Socket, "Unknown command\n"),
             loop(Nick, Socket)
@@ -176,6 +180,38 @@ send_private_message(Nick, Socket, Content) ->
     % TODO validate input
     {Recipient, [_|Message]} = lists:splitwith(fun(T) -> [T] =/= ":" end, Content),
     gen_server:cast(chat_handler, {pvt, Nick, Recipient, Message}),
+    loop(Nick, Socket).
+
+create_private_room(Nick, Socket, Content) ->
+    RoomName = clean(Content),
+    Response = gen_server:call(chat_handler, {create_private_room, Nick, RoomName}),
+    case Response of
+        ok ->
+            gen_tcp:send(Socket, "CREATE_PVT:OK\n");
+        room_already_exists ->
+            gen_tcp:send(Socket, "CREATE_PVT:ERROR:Room already exists.\n"),
+            ok
+    end,
+    loop(Nick, Socket).
+
+invite(Nick, Socket, Content) ->
+    % TODO validate input
+    {RoomName, [_|InvitedUser]} = lists:splitwith(fun(T) -> [T] =/= ":" end, Content),
+    Response = gen_server:call(chat_handler, {invite, Nick, RoomName, InvitedUser}),
+    case Response of
+        {ok, List} ->
+            gen_tcp:send(Socket, "INVITE:OK:" ++ List ++ "\n");
+            % TODO notify user
+        {error, no_room} ->
+            gen_tcp:send(Socket, "INVITE:ERROR:The room doesn't exist.\n"),
+            ok;
+        {error, not_creator} ->
+            gen_tcp:send(Socket, "INVITE:ERROR:Only the room creator can invite users.\n"),
+            ok;
+        {error, already_joined} ->
+            gen_tcp:send(Socket, "INVITE:ERROR:The invited user is already in the list.\n"),
+            ok
+    end,
     loop(Nick, Socket).
 
 
