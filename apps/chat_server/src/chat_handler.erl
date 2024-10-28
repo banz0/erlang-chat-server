@@ -47,7 +47,6 @@ handle_call({create_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) -
             room_already_exists;  % room already exists, ignore request
         false ->
             NewRooms = dict:append(RoomName, [Nick], Rooms), % TODO figure out a way too track room ownership
-            io:format("Room members: ~p~n", [members_list([Nick])]),
             {ok, room_list(NewRooms)}
     end,
     {reply, Response, State#state{rooms=NewRooms}};
@@ -68,10 +67,7 @@ handle_call({join_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
         true ->
             % check if user is in list
             Members = dict:fetch(RoomName, Rooms),
-            io:format("Room members: ~p~n", [Members]),
-            io:format("Nick: ~p~n", [Nick]),
             IsMember = lists:member([Nick], Members),
-            io:format("Is member: ~p~n", [IsMember]),
             Response = if IsMember ->
                             NewRooms = Rooms,
                             already_joined;
@@ -118,9 +114,6 @@ handle_call({destroy_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) 
             Members = dict:fetch(RoomName, Rooms),
             [Creator | _] = Members,
             IsCreator = Creator == [Nick],
-            io:format("Room members: ~p~n", [Members]),
-            io:format("Creator: ~p~n", [Creator]),
-            io:format("Is member: ~p~n", [IsCreator]),
             Response = if IsCreator ->
                             UpdatedRooms = dict:erase(RoomName, Rooms),
                             {ok, room_list(UpdatedRooms)};
@@ -172,7 +165,6 @@ handle_cast(_Request, State) -> {noreply, State}.
 
 broadcast(Nick, Msg, Users) ->
     Sockets = lists:map(fun({_, [Value|_]}) -> Value end, dict:to_list(dict:erase(Nick, Users))),
-    io:format("Sockets: ~p~n", [Sockets]),
     lists:foreach(fun(Sock) -> gen_tcp:send(Sock, Msg) end, Sockets).
 
 broadcast_to_room(Nick, Msg, Users, RoomMembers) ->
@@ -184,12 +176,10 @@ broadcast_to_room(Nick, Msg, Users, RoomMembers) ->
 
 user_list(Users) ->
     UserList = dict:fetch_keys(Users),
-    io:format("UserList: ~p~n", [UserList]),
     string:join(UserList, ":").
 
 room_list(Rooms) ->
     RoomList = dict:fetch_keys(Rooms),
-    io:format("RoomList: ~p~n", [RoomList]),
     string:join(RoomList, ":").
 
 members_list(Members) -> string:join(Members, ":").

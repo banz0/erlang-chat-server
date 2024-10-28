@@ -28,6 +28,7 @@
 	listen_socket=null
 }).
 
+
 start_link(Name, Port, Loop) ->
 	State = #server_state{port = Port, loop = Loop},
 	gen_server:start_link({local, Name}, ?MODULE, State, []).
@@ -51,11 +52,13 @@ accept_loop({Server, ListenSocket, {M, F}}) ->
 	gen_server:cast(Server, {accepted, self()}),
 	M:F(Socket).
 
+
 %% internal functions
 
 accept(State = #server_state{listen_socket=ListenSocket, loop = Loop}) ->
 	proc_lib:spawn(?MODULE, accept_loop, [{self(), ListenSocket, Loop}]),
 	State.
+
 
 %% dummy implementations to suppress warnings
 

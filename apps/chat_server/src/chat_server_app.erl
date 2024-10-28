@@ -11,6 +11,7 @@
 
 -define(DEFAULT_PORT, 4000).
 
+
 start(_StartType, _StartArgs) ->
     Port = application:get_env(chat_server, port, ?DEFAULT_PORT),
     chat_handler_sup:start_link(),
@@ -89,7 +90,7 @@ handle_command(Nick, Command, Content, Socket) ->
     end.
 
 
-% commands
+%% commands
 
 say(Nick, Socket, Content) ->
     % TODO validate input
@@ -169,7 +170,8 @@ destroy_room(Nick, Socket, RoomName) ->
     end,
     loop(Nick, Socket).
 
-% aux functions
+
+%% aux functions
 
 clean(Data) ->
     re:replace(Data, "[\r\n]+$", "", [global, {return, list}]).
