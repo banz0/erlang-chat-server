@@ -90,6 +90,8 @@ handle_command(Nick, Command, Content, Socket) ->
             create_private_room(Nick, Socket, clean(Content));
         "INVITE" ->
             invite(Nick, Socket, clean(Content));
+        "SAY_PVT" ->
+            say_pvt(Nick, Socket, clean(Content));
         _ ->
             gen_tcp:send(Socket, "Unknown command\n"),
             loop(Nick, Socket)
@@ -212,6 +214,12 @@ invite(Nick, Socket, Content) ->
             gen_tcp:send(Socket, "INVITE:ERROR:The invited user is already in the list.\n"),
             ok
     end,
+    loop(Nick, Socket).
+
+say_pvt(Nick, Socket, Content) ->
+    % TODO validate input
+    {RoomName, [_|Message]} = lists:splitwith(fun(T) -> [T] =/= ":" end, Content),
+    gen_server:cast(chat_handler, {say_pvt, Nick, RoomName, Message}),
     loop(Nick, Socket).
 
 

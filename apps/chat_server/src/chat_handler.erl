@@ -144,8 +144,6 @@ handle_call({invite, Nick, RoomName, InvitedUser}, _From, State = #state{private
             % check if user is in list
             Members = dict:fetch(RoomName, Rooms),
             [Creator | _] = Members,
-            io:format("Nick ~p~n", [Nick]),
-            io:format("Creator ~p~n", [Creator]),
             IsCreator = Creator == [Nick],
             IsMember = lists:member([InvitedUser], Members),
             Response = if not IsCreator ->
@@ -205,6 +203,17 @@ handle_cast({pvt, Nick, Recipient, Msg}, State = #state{users=Users}) ->
             ok
     end,
     {noreply, State};
+
+handle_cast({say_pvt, Nick, RoomName, Msg}, State = #state{private_rooms=Rooms, users=Users}) ->
+    case is_member(Nick, RoomName, Rooms) of
+        {ok, Members} ->
+            Message = "PVT_ROOM:" ++ RoomName ++ ":USER:" ++ Nick ++ ":SAID:" ++ Msg ++ "\n",
+            Members = dict:fetch(RoomName, Rooms),
+            broadcast_to_room(Nick, Message, Users, Members),
+            {noreply, State};
+        {error, _} ->
+            {noreply, State}
+    end;
 
 handle_cast(_Request, State) -> {noreply, State}.
 
