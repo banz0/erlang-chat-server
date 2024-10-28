@@ -39,7 +39,16 @@ handle_call({create_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) -
             NewRooms = dict:append(RoomName, Nick, Rooms), % TODO figure out a way too track room ownership
             {ok, room_list(NewRooms)}
     end,
-    {reply, Response, State#state{rooms=NewRooms}}.
+    {reply, Response, State#state{rooms=NewRooms}};
+
+handle_call({list_rooms, _Nick}, _From, State = #state{rooms=Rooms}) ->
+    Response = case is_empty(Rooms) of
+        true ->
+            no_rooms;
+        false ->
+            {ok, room_list(Rooms)}
+    end,
+    {reply, Response, State#state{rooms=Rooms}}.
 
 handle_cast({say, Nick, Msg}, State = #state{users=Users}) ->
     broadcast(Nick, "SAID:" ++ Nick ++ ":" ++ Msg ++ "\n", Users),
@@ -62,6 +71,11 @@ room_list(Rooms) ->
     RoomList = dict:fetch_keys(Rooms),
     io:format("RoomList: ~p~n", [RoomList]),
     string:join(RoomList, ":").
+
+is_empty([]) ->
+    true;
+is_empty(_) ->
+    false.
 
 
 %% dummy implementations to suppress warnings

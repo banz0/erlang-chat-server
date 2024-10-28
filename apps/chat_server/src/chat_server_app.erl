@@ -76,6 +76,8 @@ handle_command(Nick, Command, Content, Socket) ->
             say(Nick, Socket, clean(Content));
         "CREATE_ROOM" ->
             create_room(Nick, Socket, clean(Content));
+        "LIST_ROOMS" ->
+            list_rooms(Nick, Socket);
         _ ->
             gen_tcp:send(Socket, "Unknown command\n"),
             loop(Nick, Socket)
@@ -96,6 +98,18 @@ create_room(Nick, Socket, Content) ->
             % gen_server:cast(chat_handler, {join, Nick}),
         room_already_exists ->
             gen_tcp:send(Socket, "CREATE_ROOM:ERROR:Room already exists.\n"),
+            ok
+    end,
+    loop(Nick, Socket).
+
+list_rooms(Nick, Socket) ->
+    Response = gen_server:call(chat_handler, {list_rooms, Nick}),
+    case Response of
+        {ok, List} ->
+            gen_tcp:send(Socket, "LIST_ROOMS:OK:" ++ List ++ "\n");
+            % gen_server:cast(chat_handler, {join, Nick}),
+        no_rooms ->
+            gen_tcp:send(Socket, "LIST_ROOMS:ERROR:No rooms available.\n"),
             ok
     end,
     loop(Nick, Socket).
