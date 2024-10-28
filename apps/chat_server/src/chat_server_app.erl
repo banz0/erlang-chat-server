@@ -74,15 +74,15 @@ handle_command(Nick, Command, Content, Socket) ->
     case Command of
         "SAY" ->
             say(Nick, Socket, clean(Content));
-        "CREATE_ROOM" ->
+        "CREATE" ->
             create_room(Nick, Socket, clean(Content));
-        "LIST_ROOMS" ->
+        "LIST" ->
             list_rooms(Nick, Socket);
-        "JOIN_ROOM" ->
+        "JOIN" ->
             join_room(Nick, Socket, clean(Content));
-        "LEAVE_ROOM" ->
+        "LEAVE" ->
             leave_room(Nick, Socket, clean(Content));
-        "DESTROY_ROOM" ->
+        "DESTROY" ->
             destroy_room(Nick, Socket, clean(Content));
         _ ->
             gen_tcp:send(Socket, "Unknown command\n"),
@@ -103,10 +103,10 @@ create_room(Nick, Socket, Content) ->
     Response = gen_server:call(chat_handler, {create_room, Nick, RoomName}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "CREATE_ROOM:OK:" ++ List ++ "\n"),
+            gen_tcp:send(Socket, "CREATE:OK:" ++ List ++ "\n"),
             gen_server:cast(chat_handler, {create, Nick, RoomName});
         room_already_exists ->
-            gen_tcp:send(Socket, "CREATE_ROOM:ERROR:Room already exists.\n"),
+            gen_tcp:send(Socket, "CREATE:ERROR:Room already exists.\n"),
             ok
     end,
     loop(Nick, Socket).
@@ -115,9 +115,9 @@ list_rooms(Nick, Socket) ->
     Response = gen_server:call(chat_handler, {list_rooms, Nick}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "LIST_ROOMS:OK:" ++ List ++ "\n");
+            gen_tcp:send(Socket, "LIST:OK:" ++ List ++ "\n");
         no_rooms ->
-            gen_tcp:send(Socket, "LIST_ROOMS:No rooms available.\n"),
+            gen_tcp:send(Socket, "LIST:No rooms available.\n"),
             ok
     end,
     loop(Nick, Socket).
@@ -126,13 +126,13 @@ join_room(Nick, Socket, RoomName) ->
     Response = gen_server:call(chat_handler, {join_room, Nick, RoomName}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "JOIN_ROOM:OK:" ++ List ++ "\n"),
+            gen_tcp:send(Socket, "JOIN:OK:" ++ List ++ "\n"),
             gen_server:cast(chat_handler, {join, Nick, RoomName});
         already_joined ->
-            gen_tcp:send(Socket, "JOIN_ROOM:ERROR:You're already in the room.\n"),
+            gen_tcp:send(Socket, "JOIN:ERROR:You're already in the room.\n"),
             ok;
         room_doesnt_exist ->
-            gen_tcp:send(Socket, "JOIN_ROOM:ERROR:The room you're trying to join doesn't exist.\n"),
+            gen_tcp:send(Socket, "JOIN:ERROR:The room you're trying to join doesn't exist.\n"),
             ok
     end,
     loop(Nick, Socket).
@@ -141,16 +141,16 @@ leave_room(Nick, Socket, RoomName) ->
     Response = gen_server:call(chat_handler, {leave_room, Nick, RoomName}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "LEAVE_ROOM:OK:" ++ List ++ "\n"),
+            gen_tcp:send(Socket, "LEAVE:OK:" ++ List ++ "\n"),
             gen_server:cast(chat_handler, {leave, Nick, RoomName});
         {error, is_creator} ->
-            gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:The creator cannot leave the room. Use DESTROY_ROOM:<room_name> to destroy it.\n"),
+            gen_tcp:send(Socket, "LEAVE:ERROR:The creator cannot leave the room. Use DESTROY_ROOM:<room_name> to destroy it.\n"),
             ok;
         {error, not_member} ->
-            gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:You're not a member of the room.\n"),
+            gen_tcp:send(Socket, "LEAVE:ERROR:You're not a member of the room.\n"),
             ok;
         {error, room_doesnt_exist} ->
-            gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:The room you're trying to leave doesn't exist.\n"),
+            gen_tcp:send(Socket, "LEAVE:ERROR:The room you're trying to leave doesn't exist.\n"),
             ok
     end,
     loop(Nick, Socket).
@@ -159,13 +159,13 @@ destroy_room(Nick, Socket, RoomName) ->
     Response = gen_server:call(chat_handler, {destroy_room, Nick, RoomName}),
     case Response of
         {ok, List} ->
-            gen_tcp:send(Socket, "DESTROY_ROOM:OK:" ++ List ++ "\n"),
+            gen_tcp:send(Socket, "DESTROY:OK:" ++ List ++ "\n"),
             gen_server:cast(chat_handler, {destroy, Nick, RoomName});
         not_creator ->
-            gen_tcp:send(Socket, "DESTROY_ROOM:ERROR:Only the creator of the room can destroy it.\n"),
+            gen_tcp:send(Socket, "DESTROY:ERROR:Only the creator of the room can destroy it.\n"),
             ok;
         no_room ->
-            gen_tcp:send(Socket, "DESTROY_ROOM:ERROR:The room you're trying to destroy doesn't exist.\n"),
+            gen_tcp:send(Socket, "DESTROY:ERROR:The room you're trying to destroy doesn't exist.\n"),
             ok
     end,
     loop(Nick, Socket).
