@@ -158,10 +158,19 @@ handle_cast({leave, Nick, RoomName}, State = #state{rooms=Rooms, users=Users}) -
     broadcast_to_room(Nick, Message, Users, Members),
     {noreply, State};
 
+handle_cast({pvt, Nick, Recipient, Msg}, State = #state{users=Users}) ->
+    case dict:find(Recipient, Users) of
+        {ok, [Socket|_]} ->
+            gen_tcp:send(Socket, "PVT:" ++ Nick ++ ":SAID:" ++ Msg ++ "\n");
+        _ ->
+            ok
+    end,
+    {noreply, State};
+
 handle_cast(_Request, State) -> {noreply, State}.
 
 
-% aux functions
+%% aux functions
 
 broadcast(Nick, Msg, Users) ->
     Sockets = lists:map(fun({_, [Value|_]}) -> Value end, dict:to_list(dict:erase(Nick, Users))),

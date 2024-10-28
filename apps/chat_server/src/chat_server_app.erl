@@ -84,6 +84,8 @@ handle_command(Nick, Command, Content, Socket) ->
             leave_room(Nick, Socket, clean(Content));
         "DESTROY" ->
             destroy_room(Nick, Socket, clean(Content));
+        "PVT" ->
+            send_private_message(Nick, Socket, clean(Content));
         _ ->
             gen_tcp:send(Socket, "Unknown command\n"),
             loop(Nick, Socket)
@@ -168,6 +170,12 @@ destroy_room(Nick, Socket, RoomName) ->
             gen_tcp:send(Socket, "DESTROY:ERROR:The room you're trying to destroy doesn't exist.\n"),
             ok
     end,
+    loop(Nick, Socket).
+
+send_private_message(Nick, Socket, Content) ->
+    % TODO validate input
+    {Recipient, [_|Message]} = lists:splitwith(fun(T) -> [T] =/= ":" end, Content),
+    gen_server:cast(chat_handler, {pvt, Nick, Recipient, Message}),
     loop(Nick, Socket).
 
 
