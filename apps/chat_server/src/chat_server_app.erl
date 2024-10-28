@@ -13,7 +13,7 @@
 
 start(_StartType, _StartArgs) ->
     Port = application:get_env(chat_server, port, ?DEFAULT_PORT),
-    chat_handler:start(), % TODO replace with call to chat_server_sup:start_link?
+    chat_handler_sup:start_link(),
     socket_server_sup:start_link(?MODULE, Port,  {?MODULE, pre_loop}).
 
 stop(_State) ->
