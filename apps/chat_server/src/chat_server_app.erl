@@ -82,6 +82,8 @@ handle_command(Nick, Command, Content, Socket) ->
             join_room(Nick, Socket, clean(Content));
         "LEAVE_ROOM" ->
             leave_room(Nick, Socket, clean(Content));
+        "DESTROY_ROOM" ->
+            destroy_room(Nick, Socket, clean(Content));
         _ ->
             gen_tcp:send(Socket, "Unknown command\n"),
             loop(Nick, Socket)
@@ -121,7 +123,6 @@ join_room(Nick, Socket, RoomName) ->
     case Response of
         {ok, List} ->
             gen_tcp:send(Socket, "JOIN_ROOM:OK:" ++ List ++ "\n");
-            % gen_tcp:send(Socket, "JOIN_ROOM:" ++ RoomName + ":OK:" ++ List ++ "\n");
             % gen_server:cast(chat_handler, {join, RoomName, Nick}),
         already_joined ->
             gen_tcp:send(Socket, "JOIN_ROOM:ERROR:You're already in the room.\n"),
@@ -137,13 +138,28 @@ leave_room(Nick, Socket, RoomName) ->
     case Response of
         {ok, List} ->
             gen_tcp:send(Socket, "LEAVE_ROOM:OK:" ++ List ++ "\n");
-            % gen_tcp:send(Socket, "LEAVE_ROOM:" ++ RoomName ++ ":OK:" ++ List ++ "\n");
-            % gen_server:cast(chat_handler, {join, RoomName, Nick}),
+            % gen_server:cast(chat_handler, {leave, RoomName, Nick}),
         not_member ->
             gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:You're not a member of the room.\n"),
             ok;
         room_doesnt_exist ->
             gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:The room you're trying to leave doesn't exist.\n"),
+            ok
+    end,
+    loop(Nick, Socket).
+
+destroy_room(Nick, Socket, RoomName) ->
+    Response = gen_server:call(chat_handler, {destroy_room, Nick, RoomName}),
+    case Response of
+        {ok, List} ->
+            gen_tcp:send(Socket, "DESTROY_ROOM:OK:" ++ List ++ "\n");
+            % gen_server:cast(chat_handler, {destroy, RoomName, Nick}),
+            % TODO figure out how to notify room members the room was destroyed, after it's destroyed
+        not_creator ->
+            gen_tcp:send(Socket, "DESTROY_ROOM:ERROR:Only the creator of the room can destroy it.\n"),
+            ok;
+        no_room ->
+            gen_tcp:send(Socket, "DESTROY_ROOM:ERROR:The room you're trying to destroy doesn't exist.\n"),
             ok
     end,
     loop(Nick, Socket).

@@ -79,12 +79,13 @@ handle_call({leave_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
         false ->
             {reply, room_doesnt_exist, State};
         true ->
-            % check if user is in list
+            % check if user is in room and if so remove him from the room members
             Members = dict:fetch(RoomName, Rooms),
             io:format("Room members: ~p~n", [Members]),
             io:format("Nick: ~p~n", [Nick]),
             IsMember = lists:member([Nick], Members),
             io:format("Is member: ~p~n", [IsMember]),
+            % TODO check if user is head of members list as  the creator cannot leave the room
             Response = if IsMember ->
                             UpdatedMembers = lists:filter(fun(Member) -> Member =/= [Nick] end, Members),
                             NewRooms = dict:store(RoomName, UpdatedMembers, Rooms),
@@ -94,6 +95,28 @@ handle_call({leave_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
                             not_member
             end,
             {reply, Response, State#state{rooms=NewRooms}}
+    end;
+
+handle_call({destroy_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
+    case dict:is_key(RoomName, Rooms) of
+        false ->
+            {reply, no_room, State};
+        true ->
+            % check if user is room owner, and if so delete the room
+            Members = dict:fetch(RoomName, Rooms),
+            [Creator | _] = Members,
+            IsCreator = Creator == [Nick],
+            io:format("Room members: ~p~n", [Members]),
+            io:format("Creator: ~p~n", [Creator]),
+            io:format("Is member: ~p~n", [IsCreator]),
+            Response = if IsCreator ->
+                            UpdatedRooms = dict:erase(RoomName, Rooms),
+                            {ok, room_list(UpdatedRooms)};
+                        true ->
+                            UpdatedRooms = Rooms,
+                            not_creator
+            end,
+            {reply, Response, State#state{rooms=UpdatedRooms}}
     end.
 
 handle_cast({say, Nick, Msg}, State = #state{users=Users}) ->
@@ -111,6 +134,7 @@ broadcast(Nick, Msg, Users) ->
 
 user_list(Users) ->
     UserList = dict:fetch_keys(Users),
+    io:format("UserList: ~p~n", [UserList]),
     string:join(UserList, ":").
 
 room_list(Rooms) ->
