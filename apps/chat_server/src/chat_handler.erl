@@ -9,16 +9,17 @@
 
 -export([start/0, init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
 
+-record(state, {users, rooms}).
 
 start() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-% This is called when a connection is made to the server
 init([]) ->
-    Users = dict:new(), % Maps users nickames to sockets
-    {ok, Users}.
+    Users = dict:new(), % maps users nickames to sockets
+    Rooms = dict:new(), % maps rooms to their members nicknames
+    {ok, #state{users=Users, rooms=Rooms}}.
 
-handle_call({connect, Nick, Socket}, _From, Users) ->
+handle_call({connect, Nick, Socket}, _From, State = #state{users=Users}) ->
     Response = case dict:is_key(Nick, Users) of
         true ->
             NewUsers = Users,
@@ -27,21 +28,41 @@ handle_call({connect, Nick, Socket}, _From, Users) ->
             NewUsers = dict:append(Nick, Socket, Users),
             {ok, user_list(NewUsers)}
     end,
-    {reply, Response, NewUsers}.
+    {reply, Response, State#state{users=NewUsers}};
+
+handle_call({create_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
+    Response = case dict:is_key(RoomName, Rooms) of
+        true ->
+            NewRooms = Rooms,
+            room_already_exists;  % Room already exists, ignore request
+        false ->
+            NewRooms = dict:append(RoomName, Nick, Rooms), % TODO figure out a way too track room ownership
+            {ok, room_list(NewRooms)}
+    end,
+    {reply, Response, State#state{rooms=NewRooms}}.
+
+handle_cast({say, Nick, Msg}, State = #state{users=Users}) ->
+    broadcast(Nick, "SAID:" ++ Nick ++ ":" ++ Msg ++ "\n", Users),
+    {noreply, State};
+
+handle_cast(_Request, State) -> {noreply, State}.
+
+
+% aux functions
+
+broadcast(Nick, Msg, Users) ->
+    Sockets = lists:map(fun({_, [Value|_]}) -> Value end, dict:to_list(dict:erase(Nick, Users))),
+    lists:foreach(fun(Sock) -> gen_tcp:send(Sock, Msg) end, Sockets).
 
 user_list(Users) ->
     UserList = dict:fetch_keys(Users),
     string:join(UserList, ":").
 
-handle_cast({say, Nick, Msg}, Users) ->
-    broadcast(Nick, "SAID:" ++ Nick ++ ":" ++ Msg ++ "\n", Users),
-    {noreply, Users};
-handle_cast(_Request, State) -> {noreply, State}.
+room_list(Rooms) ->
+    RoomList = dict:fetch_keys(Rooms),
+    io:format("RoomList: ~p~n", [RoomList]),
+    string:join(RoomList, ":").
 
-% auxiliary functions
-broadcast(Nick, Msg, Users) ->
-    Sockets = lists:map(fun({_, [Value|_]}) -> Value end, dict:to_list(dict:erase(Nick, Users))),
-    lists:foreach(fun(Sock) -> gen_tcp:send(Sock, Msg) end, Sockets).
 
 %% dummy implementations to suppress warnings
 
