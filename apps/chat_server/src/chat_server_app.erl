@@ -141,10 +141,13 @@ leave_room(Nick, Socket, RoomName) ->
         {ok, List} ->
             gen_tcp:send(Socket, "LEAVE_ROOM:OK:" ++ List ++ "\n");
             % gen_server:cast(chat_handler, {leave, RoomName, Nick}),
-        not_member ->
+        {error, is_creator} ->
+            gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:The creator cannot leave the room. Use DESTROY_ROOM:<room_name> to destroy it.\n"),
+            ok;
+        {error, not_member} ->
             gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:You're not a member of the room.\n"),
             ok;
-        room_doesnt_exist ->
+        {error, room_doesnt_exist} ->
             gen_tcp:send(Socket, "LEAVE_ROOM:ERROR:The room you're trying to leave doesn't exist.\n"),
             ok
     end,

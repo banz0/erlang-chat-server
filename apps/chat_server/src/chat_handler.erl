@@ -77,22 +77,24 @@ handle_call({join_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
 handle_call({leave_room, Nick, RoomName}, _From, State = #state{rooms=Rooms}) ->
     case dict:is_key(RoomName, Rooms) of
         false ->
-            {reply, room_doesnt_exist, State};
+            {reply, {error, room_doesnt_exist}, State};
         true ->
             % check if user is in room and if so remove him from the room members
+            % if the user is the room creator
             Members = dict:fetch(RoomName, Rooms),
-            io:format("Room members: ~p~n", [Members]),
-            io:format("Nick: ~p~n", [Nick]),
             IsMember = lists:member([Nick], Members),
-            io:format("Is member: ~p~n", [IsMember]),
-            % TODO check if user is head of members list as  the creator cannot leave the room
-            Response = if IsMember ->
+            [Creator | _] = Members,
+            IsCreator = Creator == [Nick],
+            Response = if IsCreator ->
+                            NewRooms = Rooms,
+                            {error, is_creator};
+                        IsMember ->
                             UpdatedMembers = lists:filter(fun(Member) -> Member =/= [Nick] end, Members),
                             NewRooms = dict:store(RoomName, UpdatedMembers, Rooms),
                             {ok, members_list(UpdatedMembers)};
                         true ->
                             NewRooms = Rooms,
-                            not_member
+                            {error, not_member}
             end,
             {reply, Response, State#state{rooms=NewRooms}}
     end;
