@@ -21,9 +21,8 @@
 start_link() ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 
-% This is called when a connection is made to the server
 init([]) ->
-    Users = dict:new(), % Maps users nickames to sockets
+    Users = dict:new(), % maps users nickames to sockets
     {ok, Users}.
 
 handle_call({connect, Nick, Socket}, _From, Users) ->
@@ -46,7 +45,9 @@ handle_cast({say, Nick, Msg}, Users) ->
     {noreply, Users};
 handle_cast(_Request, State) -> {noreply, State}.
 
-% auxiliary functions
+
+%% auxiliary functions
+
 broadcast(Nick, Msg, Users) ->
     Sockets = lists:map(fun({_, [Value|_]}) -> Value end, dict:to_list(dict:erase(Nick, Users))),
     lists:foreach(fun(Sock) -> gen_tcp:send(Sock, Msg) end, Sockets).

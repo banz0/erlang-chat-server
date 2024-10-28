@@ -56,7 +56,6 @@ loop(Nick, Socket) ->
             handle_message(Nick, Message, Socket);
         {error, closed} ->
             io:format("Client disconnected~n"),
-            % TODO update users_list?
             ok
     end.
 
